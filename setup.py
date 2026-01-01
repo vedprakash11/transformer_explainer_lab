@@ -13,12 +13,12 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 setup(
     name="transformer-explainability-lab",
     version="1.0.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Ved Prakash",
+    author_email="vedprakashg214@gmail.com",
     description="A production-ready tool for visualizing and analyzing transformer attention mechanisms",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/transformer-explainability-lab",
+    url="https://github.com/vedprakash11/transformer_explainer_lab",
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     package_dir={"": "."},
     classifiers=[
