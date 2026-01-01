@@ -132,6 +132,14 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+def auto_height(df, row_height=35, min_height=150, max_height=600):
+    """
+    Dynamically calculate dataframe height based on row count.
+    """
+    return min(
+        max(len(df) * row_height, min_height),
+        max_height
+    )
 
 
 def validate_inputs(text: str, layer: int, head: int, max_layer: int, max_head: int) -> Optional[str]:
@@ -310,51 +318,67 @@ def main():
                         k_np = k.detach().cpu().numpy()
                         v_np = v.detach().cpu().numpy()
                         
-                        # Display in columns
-                        col1, col2, col3 = st.columns(3)
-                        
-                        with col1:
-                            st.markdown("**Query (Q) Vectors**")
-                            import pandas as pd
-                            q_df = pd.DataFrame(
-                                q_np,
-                                index=tokens,
-                                columns=[f"Dim {i}" for i in range(q_np.shape[1])]
-                            )
-                            st.dataframe(
-                                q_df.style.background_gradient(cmap='Blues', axis=None),
-                                use_container_width=True,
-                                height=300
-                            )
-                            st.caption(f"Shape: {q_np.shape}")
-                        
-                        with col2:
-                            st.markdown("**Key (K) Vectors**")
-                            k_df = pd.DataFrame(
-                                k_np,
-                                index=tokens,
-                                columns=[f"Dim {i}" for i in range(k_np.shape[1])]
-                            )
-                            st.dataframe(
-                                k_df.style.background_gradient(cmap='Greens', axis=None),
-                                use_container_width=True,
-                                height=300
-                            )
-                            st.caption(f"Shape: {k_np.shape}")
-                        
-                        with col3:
-                            st.markdown("**Value (V) Vectors**")
-                            v_df = pd.DataFrame(
-                                v_np,
-                                index=tokens,
-                                columns=[f"Dim {i}" for i in range(v_np.shape[1])]
-                            )
-                            st.dataframe(
-                                v_df.style.background_gradient(cmap='Reds', axis=None),
-                                use_container_width=True,
-                                height=300
-                            )
-                            st.caption(f"Shape: {v_np.shape}")
+                        import pandas as pd
+                       
+
+                        # -------------------------------
+                        # Q Matrix
+                        # -------------------------------
+                        st.markdown("### 🔹 Query (Q) Vectors")
+
+                        q_df = pd.DataFrame(
+                            q_np,
+                            index=tokens,
+                            columns=[f"Dim {i}" for i in range(q_np.shape[1])]
+                        )
+
+                        st.dataframe(
+                            q_df.style.background_gradient(cmap="Blues", axis=None),
+                            use_container_width=True,
+                            height=auto_height(q_df)
+                        )
+                        st.caption(f"Shape: {q_np.shape}")
+
+                        st.divider()
+
+                        # -------------------------------
+                        # K Matrix
+                        # -------------------------------
+                        st.markdown("### 🔹 Key (K) Vectors")
+
+                        k_df = pd.DataFrame(
+                            k_np,
+                            index=tokens,
+                            columns=[f"Dim {i}" for i in range(k_np.shape[1])]
+                        )
+
+                        st.dataframe(
+                            k_df.style.background_gradient(cmap="Greens", axis=None),
+                            use_container_width=True,
+                            height=auto_height(k_df)
+                        )
+                        st.caption(f"Shape: {k_np.shape}")
+
+                        st.divider()
+
+                        # -------------------------------
+                        # V Matrix
+                        # -------------------------------
+                        st.markdown("### 🔹 Value (V) Vectors")
+
+                        v_df = pd.DataFrame(
+                            v_np,
+                            index=tokens,
+                            columns=[f"Dim {i}" for i in range(v_np.shape[1])]
+                        )
+
+                        st.dataframe(
+                            v_df.style.background_gradient(cmap="Reds", axis=None),
+                            use_container_width=True,
+                            height=auto_height(v_df)
+                        )
+                        st.caption(f"Shape: {v_np.shape}")
+
                         
                         # Add explanation
                         with st.expander("ℹ️ About Q, K, V Vectors"):

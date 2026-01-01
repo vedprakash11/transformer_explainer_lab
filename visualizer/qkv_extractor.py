@@ -47,7 +47,7 @@ def extract_qkv_bert(
                 encoder_attention_mask=None,
                 past_key_value=None,
                 output_attentions=False,
-                use_cache=False,
+                # use_cache=False,
             )
             hidden_states = layer_outputs[0]
         
