@@ -64,7 +64,7 @@ if run_btn:
             hide_cls=hide_cls
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 else:
     st.info("👈 Enter text and click **Visualize Attention**")

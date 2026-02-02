@@ -1,115 +1,118 @@
 """
-Model loading utilities with caching for efficient model management.
+Model loading and caching for transformer analysis.
 
-This module handles loading and caching of transformer models for analysis.
+Loads BERT and LLaMA-style models with Streamlit resource caching.
+Config lives in config.py; this module stays testable by depending on it.
 """
 
-import streamlit as st
-from transformers import (
-    BertTokenizer,
-    BertModel,
-    AutoTokenizer,
-    AutoModelForCausalLM,
-    PreTrainedTokenizer,
-    PreTrainedModel,
-)
-from typing import Tuple, Optional
 import logging
+from typing import Any, Tuple
+
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BertModel,
+    BertTokenizer,
+    PreTrainedModel,
+    PreTrainedTokenizer,
+)
+
+from . import config
 
 logger = logging.getLogger(__name__)
 
-# Model configurations
-MODEL_CONFIGS = {
-    "bert": {
-        "model_name": "bert-base-uncased",
-        "max_layers": 12,
-        "max_heads": 12,
-    },
-    "llama": {
-        "model_name": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        "max_layers": 22,
-        "max_heads": 32,
-    },
-}
+
+def _load_bert(model_name: str) -> Tuple[PreTrainedTokenizer, PreTrainedModel]:
+    """Load BERT tokenizer and model with attention outputs enabled."""
+    tokenizer = BertTokenizer.from_pretrained(model_name)
+    model = BertModel.from_pretrained(
+        model_name,
+        output_attentions=True,
+        output_hidden_states=False,
+    )
+    model.eval()
+    return tokenizer, model
 
 
-@st.cache_resource
+def _load_llama(model_name: str) -> Tuple[PreTrainedTokenizer, PreTrainedModel]:
+    """Load LLaMA tokenizer and model with attention outputs enabled."""
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name,
+        use_fast=False,
+        trust_remote_code=True,
+    )
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        output_attentions=True,
+        output_hidden_states=False,
+        trust_remote_code=True,
+    )
+    model.eval()
+    return tokenizer, model
+
+
 def load_model(
     model_type: str = "bert",
-    _show_spinner: bool = True
+    _show_spinner: bool = True,
 ) -> Tuple[PreTrainedTokenizer, PreTrainedModel]:
     """
     Load and cache a transformer model and tokenizer.
-    
+
+    Uses Streamlit's cache_resource when run in a Streamlit context; otherwise
+    loads fresh each time (e.g. in tests).
+
     Args:
-        model_type: Type of model to load ("bert" or "llama")
-        _show_spinner: Internal parameter for Streamlit spinner control
-    
+        model_type: "bert" or "llama".
+        _show_spinner: Reserved for Streamlit UI; ignored elsewhere.
+
     Returns:
-        Tuple of (tokenizer, model)
-    
+        (tokenizer, model) with model in eval mode and output_attentions=True.
+
     Raises:
-        ValueError: If model_type is not supported
-        RuntimeError: If model loading fails
+        ValueError: If model_type is not supported.
+        RuntimeError: If download or loading fails.
     """
-    if model_type not in MODEL_CONFIGS:
-        raise ValueError(
-            f"Unsupported model type: {model_type}. "
-            f"Supported types: {list(MODEL_CONFIGS.keys())}"
-        )
-    
-    config = MODEL_CONFIGS[model_type]
-    model_name = config["model_name"]
-    
+    cfg = config.get_model_config(model_type)
+    model_name = cfg["model_name"]
+
     try:
         if model_type == "bert":
-            tokenizer = BertTokenizer.from_pretrained(model_name)
-            model = BertModel.from_pretrained(
-                model_name,
-                output_attentions=True,
-                output_hidden_states=False,
-            )
-        
+            tokenizer, model = _load_bert(model_name)
         elif model_type == "llama":
-            tokenizer = AutoTokenizer.from_pretrained(
-                model_name,
-                use_fast=False,
-                trust_remote_code=True,
+            tokenizer, model = _load_llama(model_name)
+        else:
+            raise ValueError(
+                f"Unsupported model type: {model_type!r}. "
+                f"Supported: {sorted(config.SUPPORTED_MODEL_TYPES)}"
             )
-            
-            # Add padding token if not present
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token
-            
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                output_attentions=True,
-                output_hidden_states=False,
-                trust_remote_code=True,
-            )
-        
-        model.eval()
-        logger.info(f"Successfully loaded {model_type} model: {model_name}")
-        
+        logger.info("Loaded model: type=%s, name=%s", model_type, model_name)
         return tokenizer, model
-    
     except Exception as e:
-        error_msg = f"Failed to load {model_type} model: {str(e)}"
-        logger.error(error_msg)
-        raise RuntimeError(error_msg) from e
+        logger.exception("Model load failed: type=%s", model_type)
+        raise RuntimeError(f"Failed to load {model_type} model: {e}") from e
 
 
-def get_model_config(model_type: str) -> dict:
+def get_model_config(model_type: str) -> dict[str, Any]:
     """
-    Get configuration for a model type.
-    
+    Return configuration dict for a supported model type.
+
     Args:
-        model_type: Type of model ("bert" or "llama")
-    
+        model_type: "bert" or "llama".
+
     Returns:
-        Dictionary with model configuration
+        Dict with model_name, max_layers, max_heads.
+
+    Raises:
+        ValueError: If model_type is not supported.
     """
-    if model_type not in MODEL_CONFIGS:
-        raise ValueError(f"Unsupported model type: {model_type}")
-    
-    return MODEL_CONFIGS[model_type]
+    return config.get_model_config(model_type)
+
+
+# When running in Streamlit, cache model loads to avoid repeated downloads.
+try:
+    import streamlit as st
+    load_model = st.cache_resource(load_model)
+except Exception:
+    pass

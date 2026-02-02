@@ -9,24 +9,38 @@ A production-ready, interactive web application for visualizing and analyzing at
 ## 📁 Project Structure
 
 ```
-visualizer/
-├── app.py                      # Main Streamlit application
-├── visualizer/               # Core package
-│   ├── __init__.py           # Package initialization
-│   ├── model_loader.py       # Model loading and caching
-│   ├── attention_utils.py    # Attention computation functions
-│   ├── attention_visualizer.py  # Visualization utilities
-│   ├── head_analysis.py      # Head similarity and pruning
-│   ├── qkv_extractor.py      # Q, K, V vector extraction
-│   ├── transformer_visualizer.py  # Architecture visualizations
-│   └── explainability.py     # Token relationship analysis
-├── requirements.txt           # Python dependencies
-├── setup.py                  # Package setup script
-├── README.md                 # This file
-├── QUICKSTART.md             # Quick start guide
-├── LICENSE                   # MIT License
-└── .gitignore               # Git ignore rules
+transformer_explainer_lab/
+├── app.py                     # Streamlit entry point (UI layer)
+├── main.py                     # Alternate CLI entry point
+├── visualizer/                 # Core package (business logic + viz)
+│   ├── __init__.py
+│   ├── config.py              # Model configs & env (single source of truth)
+│   ├── model_loader.py         # Model loading & caching
+│   ├── attention_utils.py     # Rollout, token contribution, entropy
+│   ├── attention_visualizer.py
+│   ├── head_analysis.py       # Head similarity & pruning
+│   ├── qkv_extractor.py       # Q, K, V extraction (BERT / LLaMA)
+│   ├── transformer_visualizer.py
+│   └── explainability.py      # Coreference, relationships, Groq explanations
+├── tests/                     # Unit tests (pytest)
+│   ├── conftest.py            # Fixtures (dummy attentions, tokens)
+│   ├── test_config.py
+│   ├── test_attention_utils.py
+│   └── test_head_analysis.py
+├── requirements.txt
+├── setup.py
+├── README.md
+├── QUICKSTART.md
+├── GROQ_SETUP.md
+└── .gitignore
 ```
+
+## 🏗️ Architecture
+
+- **Config** (`visualizer/config.py`): Central `MODEL_CONFIGS`, `get_model_config()`, and `.env` loading via `load_env_from_project_root()` / `get_env()`. No UI or model loading; used by app, model_loader, and explainability.
+- **Core package** (`visualizer/`): Pure logic and Plotly visualizations. Model loading is cached (Streamlit `cache_resource` when run from the app). Explainability uses optional Groq and lazy-loaded spaCy so the package can be imported without external services.
+- **App** (`app.py`): Loads `.env` first, then Streamlit UI; delegates all analysis to `visualizer` and uses `config.get_env()` for API keys. Input validation and error handling live in the UI layer.
+- **Tests** (`tests/`): Pytest unit tests for config, attention_utils, and head_analysis using small synthetic tensors. No model downloads or Streamlit required.
 
 ## ✨ Features
 
@@ -74,7 +88,7 @@ visualizer/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd visualizer
+   cd transformer_explainer_lab
    ```
 
 2. **Create a virtual environment** (recommended)
@@ -99,6 +113,27 @@ visualizer/
    ```
 
    The application will open in your default web browser at `http://localhost:8501`
+
+### Optional: Groq API (AI explanations)
+
+Create a `.env` file in the project root with:
+
+```bash
+GROQ_API_KEY=your_groq_api_key
+```
+
+See [GROQ_SETUP.md](GROQ_SETUP.md) for details.
+
+## 🧪 Testing
+
+From the project root:
+
+```bash
+pip install pytest
+python -m pytest tests/ -v
+```
+
+Tests cover config, attention rollout/token contribution/entropy, and head similarity/pruning with synthetic data. No model download or Streamlit required.
 
 ## 📖 Usage Guide
 

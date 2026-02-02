@@ -6,16 +6,24 @@ such as pronoun-antecedent relationships, entity co-references, and semantic con
 Also includes demo attention computation with human-readable explanations via Groq API.
 """
 
-import torch
-import numpy as np
-from typing import List, Tuple, Dict, Set, Any, Optional
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import networkx as nx
-from collections import defaultdict
+import logging
 import os
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-# Try to import Groq, but make it optional
+import networkx as nx
+import numpy as np
+import plotly.graph_objects as go
+import torch
+from plotly.subplots import make_subplots
+
+from . import config
+
+logger = logging.getLogger(__name__)
+
+# Load .env once when module is imported (e.g. for demo/Groq).
+config.load_env_from_project_root(override=True)
+
 try:
     from groq import Groq
     GROQ_AVAILABLE = True
@@ -23,31 +31,46 @@ except ImportError:
     GROQ_AVAILABLE = False
     Groq = None
 
+# Lazy-loaded spacy model so import works without en_core_web_sm installed (e.g. in tests).
+_spacy_nlp: Any = None
 
-def get_groq_client():
-    """Get Groq client if API key is available."""
+
+def _get_spacy_nlp():  # type: ignore[no-any-return]
+    """Load spacy en_core_web_sm on first use. Raises OSError if model not installed."""
+    global _spacy_nlp
+    if _spacy_nlp is None:
+        try:
+            import spacy
+            _spacy_nlp = spacy.load("en_core_web_sm")
+        except OSError as e:
+            logger.warning("spacy model en_core_web_sm not found: %s", e)
+            raise
+    return _spacy_nlp
+
+
+def get_groq_client() -> Optional["Groq"]:
+    """Return a Groq client if the package is installed and GROQ_API_KEY is set."""
     if not GROQ_AVAILABLE:
         return None
-    groq_api_key = os.environ.get("GROQ_API_KEY")
-    if not groq_api_key:
+    api_key = config.get_env("GROQ_API_KEY")
+    if not api_key:
+        logger.debug("GROQ_API_KEY not set; Groq explanations disabled")
         return None
-    return Groq(api_key=groq_api_key)
+    return Groq(api_key=api_key)
 
 
 def groq_generate_explanation(prompt: str) -> str:
     """
-    Generate human-readable explanation using Groq API.
-    
-    Args:
-        prompt: The prompt to send to Groq API
-    
-    Returns:
-        Human-readable explanation string
+    Generate a short explanation using the Groq API (LLaMA).
+
+    Returns a user-facing message if the API is unavailable or errors.
     """
     client = get_groq_client()
     if not client:
-        return "[Groq API not available] Please set GROQ_API_KEY environment variable to enable AI-generated explanations."
-    
+        return (
+            "[Groq API not available] Set GROQ_API_KEY in .env or environment "
+            "to enable AI-generated explanations."
+        )
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -63,7 +86,8 @@ def groq_generate_explanation(prompt: str) -> str:
         )
         return response.choices[0].message.content.strip()
     except Exception as ex:
-        return f"[Groq API Error] {str(ex)}"
+        logger.exception("Groq API request failed")
+        return f"[Groq API Error] {ex!s}"
 
 
 def demo_attention_on_sentence(
@@ -553,18 +577,11 @@ def create_relationship_table(
         })
     
     return table_data
-import spacy
-import networkx as nx
-import plotly.graph_objects as go
-from typing import List, Tuple
-from spacy.matcher import Matcher
-
-nlp = spacy.load("en_core_web_sm")
 
 
-def extract_entities_and_relation(sentence: str):
-    """Extract (subject, relation, object) from sentence."""
-    doc = nlp(sentence)
+def extract_entities_and_relation(sentence: str) -> Tuple[str, str, str]:
+    """Extract (subject, relation, object) from sentence using spacy."""
+    doc = _get_spacy_nlp()(sentence)
 
     subject = ""
     obj = ""
@@ -592,13 +609,7 @@ def build_knowledge_graph(sentence: str):
     return G
 
 
-import spacy
-import networkx as nx
-
-nlp = spacy.load("en_core_web_sm")
-
-
-def build_dynamic_knowledge_graph(sentence: str):
+def build_dynamic_knowledge_graph(sentence: str) -> nx.DiGraph:
     """
     Builds a semantic knowledge graph from any sentence.
     Handles:
@@ -608,8 +619,7 @@ def build_dynamic_knowledge_graph(sentence: str):
     - Temporal info
     - Beneficiaries (for/to)
     """
-
-    doc = nlp(sentence)
+    doc = _get_spacy_nlp()(sentence)
     G = nx.DiGraph()
 
     current_subjects = []
@@ -659,14 +669,10 @@ def build_dynamic_knowledge_graph(sentence: str):
                     G.add_edge(last_verb, pobj, relation=prep)
 
     return G
-import spacy
-import networkx as nx
-
-nlp = spacy.load("en_core_web_sm")
 
 
-def build_semantic_graph(sentence: str):
-    doc = nlp(sentence)
+def build_semantic_graph(sentence: str) -> nx.DiGraph:
+    doc = _get_spacy_nlp()(sentence)
     G = nx.DiGraph()
 
     subjects = []

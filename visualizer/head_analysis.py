@@ -1,14 +1,14 @@
 """
-Head analysis utilities for transformer attention heads.
+Head similarity and pruning analysis for transformer attention heads.
 
-This module provides functions to analyze similarity between attention heads
-and identify redundant heads for potential pruning.
+Computes pairwise head similarity and suggests redundant heads for pruning.
 """
 
+from typing import List, Tuple
+
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 import torch
-from typing import List, Tuple, Optional
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def head_similarity(
