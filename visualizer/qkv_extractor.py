@@ -1,11 +1,13 @@
 """
-Utility functions to extract Query, Key, and Value vectors from transformer models.
+Extract Query, Key, and Value matrices from transformer layers.
+
+Supports BERT and LLaMA-style models for a given layer and head.
 """
 
+from typing import Tuple, Union
+
 import torch
-import numpy as np
-from typing import Tuple, Optional, List
-from transformers import BertModel, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, BertModel
 
 
 def extract_qkv_bert(
@@ -171,11 +173,11 @@ def extract_qkv_llama(
 
 
 def extract_qkv(
-    model,
+    model: Union[BertModel, AutoModelForCausalLM],
     inputs: dict,
     layer: int,
     head: int,
-    model_type: str = "bert"
+    model_type: str = "bert",
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Extract Q, K, V vectors from a transformer model.

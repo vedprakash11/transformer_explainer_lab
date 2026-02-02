@@ -1,13 +1,13 @@
 """
-Attention utility functions for analyzing transformer attention mechanisms.
+Attention computation utilities for transformer analysis.
 
-This module provides functions for computing attention rollout, token contributions,
-and attention entropy metrics.
+Provides attention rollout, token contribution scores, and entropy metrics.
 """
 
-import torch
+from typing import List, Tuple
+
 import numpy as np
-from typing import List, Tuple, Optional
+import torch
 
 
 def attention_rollout(attentions: Tuple[torch.Tensor, ...]) -> torch.Tensor:

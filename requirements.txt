@@ -15,9 +15,15 @@ scikit-learn>=1.3.0,<2.0.0
 
 # Network analysis
 networkx>=3.0,<4.0
-
+dotenv
 # Tokenization
 sentencepiece>=0.1.99
 
 # Groq API (optional, for AI explanations)
 groq>=0.4.0
+
+# Environment variables from .env (for GROQ_API_KEY etc.)
+python-dotenv>=1.0.0
+
+# Testing (optional: pip install pytest)
+# pytest>=7.0.0

@@ -5,10 +5,16 @@ A comprehensive Streamlit application for visualizing and analyzing
 transformer attention mechanisms.
 """
 
+# Load .env before any code that reads env vars (e.g. GROQ_API_KEY)
+from visualizer import config as _config
+_config.load_env_from_project_root(override=True)
+
+import logging
+import os
+from typing import Dict, Optional
+
 import streamlit as st
 import torch
-import logging
-from typing import Optional
 
 from visualizer import (
     load_model,
@@ -29,47 +35,27 @@ from visualizer import (
     demo_attention_on_sentence,
 )
 
-
-
-import os
-from typing import Dict, Optional
-
-# Try to import Groq, but make it optional
+# Optional Groq client for in-app explanations (same as explainability module)
 try:
     from groq import Groq
-    GROQ_AVAILABLE = True
+    _GROQ_AVAILABLE = True
 except ImportError:
-    GROQ_AVAILABLE = False
+    _GROQ_AVAILABLE = False
     Groq = None
 
-import os
-from typing import Dict, Optional
-
-# Try to import dotenv for .env file support (optional)
-try:
-    from dotenv import load_dotenv
-    load_dotenv()  # Load environment variables from .env file
-except ImportError:
-    # dotenv not installed, skip .env file loading
-    pass
-
-# Try to import Groq, but make it optional
-try:
-    from groq import Groq
-    GROQ_AVAILABLE = True
-except ImportError:
-    GROQ_AVAILABLE = False
-    Groq = None
-
-# Initialize Groq client (will be None if API key not set or Groq not available)
-groq_api_key = os.environ.get("GROQ_API_KEY")
-if GROQ_AVAILABLE and groq_api_key:
+_groq_api_key = _config.get_env("GROQ_API_KEY")
+if _GROQ_AVAILABLE and _groq_api_key:
     try:
-        groq_client = Groq(api_key=groq_api_key)
+        groq_client = Groq(api_key=_groq_api_key)
     except Exception:
         groq_client = None
 else:
     groq_client = None
+
+# Expose for UI checks (e.g. show setup instructions when unavailable)
+GROQ_AVAILABLE = _GROQ_AVAILABLE
+
+
 def llama_groq_explain(prompt: str) -> str:
     """Use LLaMA via Groq API to generate human-readable explanation."""
     if not GROQ_AVAILABLE:
@@ -240,7 +226,7 @@ def main():
         st.divider()
         
         # Run button
-        run = st.button("🚀 Run Analysis", type="primary", use_container_width=True)
+        run = st.button("🚀 Run Analysis", type="primary", width="stretch")
 
     # Load model with error handling
     try:
@@ -304,7 +290,7 @@ def main():
                         tokens,
                         f"Layer {layer} | Head {head}",
                     )
-                    st.plotly_chart(fig1, use_container_width=True)
+                    st.plotly_chart(fig1, width="stretch")
 
                     # Extract and display Q, K, V vectors
                     st.divider()
@@ -334,7 +320,7 @@ def main():
 
                         st.dataframe(
                             q_df.style.background_gradient(cmap="Blues", axis=None),
-                            use_container_width=True,
+                            width="stretch",
                             height=auto_height(q_df)
                         )
                         st.caption(f"Shape: {q_np.shape}")
@@ -354,7 +340,7 @@ def main():
 
                         st.dataframe(
                             k_df.style.background_gradient(cmap="Greens", axis=None),
-                            use_container_width=True,
+                            width="stretch",
                             height=auto_height(k_df)
                         )
                         st.caption(f"Shape: {k_np.shape}")
@@ -374,7 +360,7 @@ def main():
 
                         st.dataframe(
                             v_df.style.background_gradient(cmap="Reds", axis=None),
-                            use_container_width=True,
+                            width="stretch",
                             height=auto_height(v_df)
                         )
                         st.caption(f"Shape: {v_np.shape}")
@@ -421,7 +407,7 @@ def main():
                         import pandas as pd
                         df = pd.DataFrame(contrib, columns=["Token", "Contribution (%)"])
                         df = df.sort_values("Contribution (%)", ascending=False)
-                        st.dataframe(df, use_container_width=True, hide_index=True)
+                        st.dataframe(df, width="stretch", hide_index=True)
                     else:
                         st.warning("No tokens to display after filtering.")
                 
@@ -433,7 +419,7 @@ def main():
                 try:
                     sim = head_similarity(attentions, layer)
                     fig2 = plot_head_similarity(sim, f"Head Similarity - Layer {layer}")
-                    st.plotly_chart(fig2, use_container_width=True)
+                    st.plotly_chart(fig2, width="stretch")
 
                     # Head pruning suggestions
                     st.subheader("🔧 Head Pruning Suggestions")
@@ -491,14 +477,14 @@ def main():
                 # Architecture overview
                 st.markdown("### 📐 Full Transformer Architecture")
                 arch_fig = visualize_transformer_architecture()
-                st.plotly_chart(arch_fig, use_container_width=True)
+                st.plotly_chart(arch_fig, width="stretch")
                 
                 st.divider()
                 
                 # Encoder block
                 st.markdown("### 🔧 Encoder Block Structure")
                 encoder_fig = visualize_encoder_block()
-                st.plotly_chart(encoder_fig, use_container_width=True)
+                st.plotly_chart(encoder_fig, width="stretch")
                 
                 st.divider()
                 
@@ -508,11 +494,11 @@ def main():
                     head_dim = model.config.hidden_size // num_heads if hasattr(model.config, 'hidden_size') else 64
                     st.markdown("### 🧠 Multi-Head Attention Mechanism")
                     mha_fig = visualize_multi_head_attention(num_heads=num_heads, head_dim=head_dim)
-                    st.plotly_chart(mha_fig, use_container_width=True)
+                    st.plotly_chart(mha_fig, width="stretch")
                 except Exception as e:
                     st.warning(f"Could not determine head dimensions: {str(e)}")
                     mha_fig = visualize_multi_head_attention()
-                    st.plotly_chart(mha_fig, use_container_width=True)
+                    st.plotly_chart(mha_fig, width="stretch")
                 
                 st.divider()
                 
@@ -525,7 +511,7 @@ def main():
                     self_attn_fig = visualize_self_attention_mechanism(
                         q, k, v, tokens, attn_weights
                     )
-                    st.plotly_chart(self_attn_fig, use_container_width=True)
+                    st.plotly_chart(self_attn_fig, width="stretch")
                 except Exception as e:
                     st.warning(f"⚠️ Could not visualize self-attention: {str(e)}")
                     st.info("💡 This visualization requires Q, K, V extraction to work.")
@@ -535,7 +521,7 @@ def main():
                 # Attention formulas
                 st.markdown("### 📐 Attention Formulas")
                 formula_fig = visualize_attention_formula()
-                st.plotly_chart(formula_fig, use_container_width=True)
+                st.plotly_chart(formula_fig, width="stretch")
                 
                 # Additional information
                 with st.expander("ℹ️ Understanding the Transformer Architecture"):
@@ -666,7 +652,7 @@ def main():
 
                             # Visualize token relationship graph
                             st.markdown("### 🌐 Relationship Network Graph")
-                            st.plotly_chart(explanation['network_figure'], use_container_width=True)
+                            st.plotly_chart(explanation['network_figure'], width="stretch")
 
                             st.divider()
 
@@ -707,7 +693,7 @@ def main():
                             if table_data:
                                 import pandas as pd
                                 df = pd.DataFrame(table_data)
-                                st.dataframe(df, use_container_width=True, hide_index=True)
+                                st.dataframe(df, width="stretch", hide_index=True)
                             else:
                                 st.info("No relationships found above threshold.")
 
@@ -773,7 +759,7 @@ def main():
                             )
                             st.dataframe(
                                 attn_df.style.background_gradient(cmap='Blues', axis=None),
-                                use_container_width=True
+                                width="stretch"
                             )
                             
                             st.divider()
